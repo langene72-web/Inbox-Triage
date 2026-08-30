@@ -43,6 +43,30 @@ This routine reads from **Gmail (inbox)** via the `Gmail` MCP connector.
   to read closely; skip obvious bulk/promo mail if the snippet alone is
   conclusive (see Step 2).
 
+### Dedupe against previous runs
+
+The `--since` window (default 2d) deliberately overlaps between consecutive
+daily runs so nothing slips through, but that means the same thread often
+reappears in more than one run. To avoid re-listing it and — more
+importantly — **never create a second Gmail draft on a thread already
+drafted in a prior run**:
+
+- Read `output/inbox-triage/.state.json` if it exists: `{"seen_thread_ids":
+  {"<threadId>": "<ISO date first seen>"}}`.
+- Any fetched thread whose id is already a key in `seen_thread_ids` is
+  **already triaged** — do not draft a reply for it again (even if it would
+  land in Decide/Delegate) and do not list it individually in the report;
+  just roll it into a one-line "N already-triaged threads carried over,
+  skipped" note.
+- Only categorize, draft, and list threads whose id is *not* yet in the
+  state file.
+- After the run, write back `.state.json` with every thread id processed
+  this run added (new + already-seen, refresh their date), pruning any
+  entries whose stored date is older than 14 days so the file doesn't grow
+  unbounded.
+- If `.state.json` doesn't exist yet (first run), treat every fetched
+  thread as new and create the file.
+
 ## Step 2 — Categorize each thread
 
 Sort every thread into exactly one bucket:
